@@ -428,24 +428,28 @@ func (fe *frontendServer) logoutHandler(w http.ResponseWriter, r *http.Request) 
 }
 
 func (fe *frontendServer) getProductByID(w http.ResponseWriter, r *http.Request) {
+	log := r.Context().Value(ctxKeyLog{}).(logrus.FieldLogger)
 	id := mux.Vars(r)["ids"]
 	if id == "" {
+		renderHTTPError(log, r, w, errors.New("product id not specified"), http.StatusBadRequest)
 		return
 	}
 
 	p, err := fe.getProduct(r.Context(), id)
 	if err != nil {
+		renderHTTPError(log, r, w, errors.Wrapf(err, "could not retrieve product %q", id), http.StatusInternalServerError)
 		return
 	}
 
 	jsonData, err := json.Marshal(p)
 	if err != nil {
-		fmt.Println(err)
+		renderHTTPError(log, r, w, errors.Wrap(err, "could not marshal product"), http.StatusInternalServerError)
 		return
 	}
 
-	w.Write(jsonData)
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
+	w.Write(jsonData)
 }
 
 func (fe *frontendServer) chatBotHandler(w http.ResponseWriter, r *http.Request) {
