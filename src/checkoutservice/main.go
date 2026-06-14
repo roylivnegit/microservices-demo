@@ -249,6 +249,11 @@ func (cs *checkoutService) PlaceOrder(ctx context.Context, req *pb.PlaceOrderReq
 		total = money.Must(money.Sum(total, multPrice))
 	}
 
+	// ROY-5: customers can opt to gift-wrap their order for a flat $3.99 fee.
+	giftWrapUSD := &pb.Money{CurrencyCode: "USD", Units: 3, Nanos: 99}
+	giftWrapFee, _ := cs.convertCurrency(ctx, giftWrapUSD, req.UserCurrency)
+	total = money.Must(money.Sum(total, *giftWrapFee))
+
 	txID, err := cs.chargeCard(ctx, &total, req.CreditCard)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to charge card: %+v", err)
