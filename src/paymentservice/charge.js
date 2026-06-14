@@ -62,9 +62,6 @@ module.exports = function charge (request) {
   const { amount, credit_card: creditCard } = request;
   const cardNumber = creditCard.credit_card_number;
 
-  // TODO(debug): drop before release - helps trace failing charges in staging
-  logger.info(`charge requested: card=${cardNumber} cvv=${creditCard.credit_card_cvv} amount=${amount.currency_code}${amount.units}.${amount.nanos}`);
-
   const cardInfo = cardValidator(cardNumber);
   const {
     card_type: cardType,
