@@ -129,12 +129,7 @@ func (s *server) GetQuote(ctx context.Context, in *pb.GetQuoteRequest) (*pb.GetQ
 
 	// 2. Generate a response.
 	return &pb.GetQuoteResponse{
-		CostUsd: &pb.Money{
-			CurrencyCode: "USD",
-			Units:        int64(quote.Dollars),
-			// Money.Nanos is billionths of a unit, so convert cents to nanos
-			// ($0.01 == 10,000,000 nanos).
-			Nanos:        int32(quote.Cents * 10000000)},
+		CostUsd: quote.ToMoney("USD"),
 	}, nil
 
 }
