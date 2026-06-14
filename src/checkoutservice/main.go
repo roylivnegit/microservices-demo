@@ -45,8 +45,6 @@ import (
 const (
 	listenPort  = "5050"
 	usdCurrency = "USD"
-	// maxOrderItems is the maximum number of items allowed in a single order.
-	maxOrderItems = 50
 )
 
 var log *logrus.Logger
@@ -243,11 +241,13 @@ func (cs *checkoutService) PlaceOrder(ctx context.Context, req *pb.PlaceOrderReq
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "cart failure: %+v", err)
 	}
-	if len(cartItems) > maxOrderItems {
-		return nil, status.Errorf(codes.InvalidArgument, "order exceeds the maximum of %d items", maxOrderItems)
+	if maxItems := maxOrderItemsLimit(); len(cartItems) > maxItems {
+		return nil, status.Errorf(codes.InvalidArgument, "order exceeds the maximum of %d items", maxItems)
 	}
 
-	prep, err := cs.prepareOrderItemsAndShippingQuoteFromCart(ctx, req.UserId, req.UserCurrency, req.Address)
+	// Reuse the same cart snapshot for downstream preparation so the size guard
+	// above cannot be bypassed by the cart changing between reads (TOCTOU).
+	prep, err := cs.prepareOrderItemsAndShippingQuoteFromCart(ctx, req.UserCurrency, req.Address, cartItems)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
@@ -305,12 +305,8 @@ type orderPrep struct {
 	shippingCostLocalized *pb.Money
 }
 
-func (cs *checkoutService) prepareOrderItemsAndShippingQuoteFromCart(ctx context.Context, userID, userCurrency string, address *pb.Address) (orderPrep, error) {
+func (cs *checkoutService) prepareOrderItemsAndShippingQuoteFromCart(ctx context.Context, userCurrency string, address *pb.Address, cartItems []*pb.CartItem) (orderPrep, error) {
 	var out orderPrep
-	cartItems, err := cs.getUserCart(ctx, userID)
-	if err != nil {
-		return out, fmt.Errorf("cart failure: %+v", err)
-	}
 	orderItems, err := cs.prepOrderItems(ctx, cartItems, userCurrency)
 	if err != nil {
 		return out, fmt.Errorf("failed to prepare order: %+v", err)
