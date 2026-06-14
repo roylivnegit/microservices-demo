@@ -17,7 +17,13 @@ package main
 import (
 	"fmt"
 	"math"
+
+	pb "github.com/GoogleCloudPlatform/microservices-demo/src/shippingservice/genproto"
 )
+
+// nanosPerCent is the number of nanos (billionths of a currency unit) in one
+// cent. Money.Nanos is expressed in 10^-9 units, so $0.01 == 10,000,000 nanos.
+const nanosPerCent = 10_000_000
 
 // Quote represents a currency value.
 type Quote struct {
@@ -28,6 +34,17 @@ type Quote struct {
 // String representation of the Quote.
 func (q Quote) String() string {
 	return fmt.Sprintf("$%d.%d", q.Dollars, q.Cents)
+}
+
+// ToMoney converts the Quote into a pb.Money value for the given currency code.
+// Centralizing the cents-to-nanos conversion here avoids ad-hoc nanos scaling
+// at call sites.
+func (q Quote) ToMoney(currencyCode string) *pb.Money {
+	return &pb.Money{
+		CurrencyCode: currencyCode,
+		Units:        int64(q.Dollars),
+		Nanos:        int32(q.Cents * nanosPerCent),
+	}
 }
 
 // CreateQuoteFromCount takes a number of items and returns a shipping quote.
