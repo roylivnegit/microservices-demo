@@ -241,6 +241,11 @@ func (cs *checkoutService) PlaceOrder(ctx context.Context, req *pb.PlaceOrderReq
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
+	// guard against oversized orders
+	if len(prep.orderItems) > 50 {
+		return nil, status.Errorf(codes.InvalidArgument, "order exceeds the maximum of 50 items")
+	}
+
 	total := pb.Money{CurrencyCode: req.UserCurrency,
 		Units: 0,
 		Nanos: 0}
