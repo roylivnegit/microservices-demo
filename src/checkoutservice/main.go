@@ -45,6 +45,8 @@ import (
 const (
 	listenPort  = "5050"
 	usdCurrency = "USD"
+	// maxOrderItems is the maximum number of items allowed in a single order.
+	maxOrderItems = 50
 )
 
 var log *logrus.Logger
@@ -235,14 +237,19 @@ func (cs *checkoutService) PlaceOrder(ctx context.Context, req *pb.PlaceOrderReq
 		return nil, status.Errorf(codes.Internal, "failed to generate order uuid")
 	}
 
+	// Guard against oversized orders before any per-item downstream work
+	// (product catalog, currency, and shipping calls).
+	cartItems, err := cs.getUserCart(ctx, req.UserId)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "cart failure: %+v", err)
+	}
+	if len(cartItems) > maxOrderItems {
+		return nil, status.Errorf(codes.InvalidArgument, "order exceeds the maximum of %d items", maxOrderItems)
+	}
+
 	prep, err := cs.prepareOrderItemsAndShippingQuoteFromCart(ctx, req.UserId, req.UserCurrency, req.Address)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
-	}
-
-	// guard against oversized orders
-	if len(prep.orderItems) > 50 {
-		return nil, status.Errorf(codes.InvalidArgument, "order exceeds the maximum of 50 items")
 	}
 
 	total := pb.Money{CurrencyCode: req.UserCurrency,
