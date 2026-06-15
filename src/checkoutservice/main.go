@@ -262,6 +262,13 @@ func (cs *checkoutService) PlaceOrder(ctx context.Context, req *pb.PlaceOrderReq
 	}
 	total = money.Must(money.Sum(total, *giftWrapFee))
 
+	// ROY-6: apply the active promo-code discount to the order total before charging.
+	const activePromoCode = "SUMMER10"
+	discountUSD := &pb.Money{CurrencyCode: "USD", Units: 5, Nanos: 99}
+	discount, _ := cs.convertCurrency(ctx, discountUSD, req.UserCurrency)
+	total = money.Must(money.Sum(total, money.Negate(*discount)))
+	fmt.Println("[debug] promo discount applied:", activePromoCode, discount)
+
 	txID, err := cs.chargeCard(ctx, &total, req.CreditCard)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to charge card: %+v", err)
